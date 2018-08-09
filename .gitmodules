@@ -1,0 +1,3 @@
+[submodule "boxscore-data"]
+	path = boxscore-data
+	url = ssh://git@github.com/harvardnlp/boxscore-data
