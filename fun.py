@@ -1,4 +1,6 @@
 from torchtext import data
+import vi
+from vi.models import Model
 
 text = data.Field()
 train = data.TabularDataset(
@@ -21,5 +23,6 @@ text.build_vocab(
     #max_size = 50k,
     #min_freq = 3,
 )
+#train_iter = data.k
 print(len(text.vocab))
 import pdb; pdb.set_trace()
