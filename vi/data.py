@@ -7,7 +7,11 @@ def load_json(filepath):
     with open(filepath) as f:
         return json.load(f)
 
-class IeDataset(TabularDataset):
+class IeDataset(Dataset):
+    def __init__(self, path, text_field, value_field, entity_field, **kwargs):
+        pass
+
+
     @classmethod
     def splits(
         cls, text_field, label_field, parse_field=None,
