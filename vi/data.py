@@ -28,10 +28,10 @@ class IeDataset(Dataset):
 
 
 if __name__ == "__main__":
-    filepath = "/n/rush_lab/jc/code/data2text/boxscore-data/rotowire/train.json"
-    json = load_json(filepath)
+    filepath = "../boxscore-data/rotowire"
+    json = load_json(filepath + "/train.json")
     TEXT = Field(lower=True, include_lengths=True)
-    train = TabularDataset(filepath, "jsonlist", {"summary": ("text", TEXT)})
+    train = TabularDataset(filepath + "/train.json", "jsonlist", {"summary": ("text", TEXT)})
     valid = train
     TEXT.build_vocab(train.text)
     train_iter, valid_iter = torchtext.data.BucketIterator.splits((train, valid), batch_size=3)
