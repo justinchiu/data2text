@@ -6,6 +6,14 @@ import os
 import json
 
 
+def nested_items(name, x):
+    if isinstance(x, dict):
+        for k, v in x.items():
+            yield from nested_items(f"{name}_{k}", v)
+    else:
+        yield (name, x)
+
+
 class IeExample(Example):
     @classmethod
     def fromJson(cls, data, fields):
@@ -15,6 +23,9 @@ class IeExample(Example):
             box_score = x["box_score"]
             id2name = box_score["PLAYER_NAME"]
 
+            for k, v in nested_items("", x):
+                print(k)
+                import pdb; pdb.set_trace()
             for key in ["home_name", "home_city", "vis_name", "vis_city", "day"]:
                 setattr(ex, name, field.preprocess(x[key]))
                 pass
