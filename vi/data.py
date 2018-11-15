@@ -1,4 +1,8 @@
+
+import torch
+
 import torchtext
+from torchtext import data
 from torchtext.data import Dataset, Field, Example, Iterator, TabularDataset
 
 import io
@@ -14,52 +18,84 @@ def nested_items(name, x):
         yield (name, x)
 
 
-class IeExample(Example):
+class RotoExample(Example):
     @classmethod
-    def fromJson(cls, data, fields):
+    def fromJson(cls, data, ent_field, type_field, value_field, text_field):
         exs = []
         for x in json.load(data):
             ex = cls()
+
+            entities = []
+            types = []
+            values = []
+
+            # Need to flatten all the tables into aligned lists of
+            # entities, types, and values.
+            # team stuff
+            home_name = x["home_name"]
+            vis_name = x["vis_name"]
+
+            def add(entity, type, value):
+                entities.append(entity)
+                types.append(type)
+                values.append(value)
+
+            # flat team stats
+            add(home_name, "home_city", x["home_city"])
+            add(vis_name, "vis_city", x["vis_city"])
+            add("day", "day", x["day"])
+
+            # team lines
+            for k, v in x["home_line"].items():
+                add(home_name, k, v)
+            for k, v in x["vis_line"].items():
+                add(vis_name, k, v)
+
+            # flatten box_score: {key: {ID: value}}
             box_score = x["box_score"]
             id2name = box_score["PLAYER_NAME"]
 
-            for k, v in nested_items("", x):
-                print(k)
-                import pdb; pdb.set_trace()
-            for key in ["home_name", "home_city", "vis_name", "vis_city", "day"]:
-                setattr(ex, name, field.preprocess(x[key]))
-                pass
-            import pdb; pdb.set_trace()
-            # lines
-            # boxscore
-            # summary
-            for key, vals in fields.items():
-                #import pdb; pdb.set_trace()
-                if key not in x:
-                    raise ValueError("Specified key {} was not found in "
-                                     "the input data".format(key))
-                if vals is not None:
-                    if not isinstance(vals, list):
-                        vals = [vals]
-                    for val in vals:
-                        name, field = val
-                        setattr(ex, name, field.preprocess(x[key]))
+            for k, d in box_score.items():
+                for id, v in d.items():
+                    add(id2name[id], k, v)
+
+            # entities, types, values, summary
+            setattr(ex, "entities", ent_field.preprocess(entities))
+            setattr(ex, "types", type_field.preprocess(types))
+            setattr(ex, "values", value_field.preprocess(values))
+            setattr(ex, "text", text_field.preprocess(x["summary"]))
+
             exs.append(ex)
         return exs
 
-class IeDataset(Dataset):
-    def __init__(
-        self, path, text_field, entity_field, type_field, value_field,
-        skip_header=False, **kwargs):
 
-        fields = {
-            "summary": ("text", TEXT),
-        }
+class RotoDataset(Dataset):
+
+    @staticmethod
+    def make_fields(entity_field, type_field, value_field, text_field):
+        return [
+            ("entities", entity_field),
+            ("types", type_field),
+            ("values", value_field),
+            ("text", text_field),
+        ]
+
+
+    def __init__(
+        self, path,
+        entity_field, type_field, value_field, text_field,
+        **kwargs
+    ):
+
+        # Sort by length of the text
+        self.sort_key = lambda x: len(x.text)
+
+        fields = self.make_fields(entity_field, type_field, value_field, text_field)
 
         with io.open(os.path.expanduser(path), encoding="utf8") as f:
-            examples = IeExample.fromJson(f, fields)
-            import pdb; pdb.set_trace()
+            examples = RotoExample.fromJson(f, entity_field, type_field, value_field, text_field)
 
+        # unused
         if isinstance(fields, dict):
             fields, field_dict = [], fields
             for field in field_dict.values():
@@ -68,20 +104,39 @@ class IeDataset(Dataset):
                 else:
                     fields.append(field)
 
-        super(IeDataset, self).__init__(examples, fields, **kwargs)
+        super(RotoDataset, self).__init__(examples, fields, **kwargs)
 
 
     @classmethod
     def splits(
-        cls, text_field, label_field, parse_field=None,
-        extra_fields={}, root='.data', train='train.json',
-        validation='vald.json', test='test.json'
-     ):
-        pass
+        cls,
+        entity_field, type_field, value_field, text_field,
+        path = None,
+        root='.data',
+        train='train.json', validation='valid.json', test='test.json',
+        **kwargs
+    ):
+        return super(RotoDataset, cls).splits(
+            path = path,
+            root = root,
+            train = train,
+            validation = validation,
+            test = test,
+            entity_field = entity_field,
+            type_field = type_field,
+            value_field = value_field,
+            text_field = text_field,
+            **kwargs
+        )
 
 
     @classmethod
-    def iters(cls, batch_size=32, device=0, root=".data", vectors=None, **kwargs):
+    def iters(
+        cls,
+        batch_size=32, device=0,
+        root=".data", vectors=None,
+        **kwargs
+    ):
         pass
 
 
@@ -98,5 +153,18 @@ if __name__ == "__main__":
     #TEXT.build_vocab(train.text)
     #train_iter, valid_iter = torchtext.data.BucketIterator.splits((train, valid), batch_size=3)
 
-    train = IeDataset(filepath, TEXT, ENT, TYPE, VALUE)
+    train = RotoDataset(filepath, ENT, TYPE, VALUE, TEXT)
+    print(filepath[:-10])
+    train, valid, test = RotoDataset.splits(
+        ENT, TYPE, VALUE, TEXT,
+        path=filepath[:-10]
+    )
+    ENT.build_vocab(train)
+    TYPE.build_vocab(train)
+    VALUE.build_vocab(train)
+    TEXT.build_vocab(train)
+
+    train_iter, valid_iter, test_iter = data.BucketIterator.splits(
+        (train, valid, test), batch_size=32, device=torch.device("cuda:0")
+    )
     import pdb; pdb.set_trace()
