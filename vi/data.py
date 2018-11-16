@@ -142,22 +142,14 @@ class RotoDataset(Dataset):
 
 
 if __name__ == "__main__":
-    filepath = "/n/rush_lab/jc/code/data2text/boxscore-data/rotowire/train.json"
+    filepath = "/n/rush_lab/jc/code/data2text/boxscore-data/rotowire/"
     ENT = Field(lower=True)
     TYPE = Field(lower=True)
     VALUE = Field(lower=True)
     TEXT = Field(lower=True, include_lengths=True)
 
-    #train = TabularDataset(filepath, "jsonlist", {"summary": ("text", TEXT)})
-    #valid = train # hack
-    #TEXT.build_vocab(train.text)
-    #train_iter, valid_iter = torchtext.data.BucketIterator.splits((train, valid), batch_size=3)
-
-    train = RotoDataset(filepath, ENT, TYPE, VALUE, TEXT)
-    print(filepath[:-10])
     train, valid, test = RotoDataset.splits(
-        ENT, TYPE, VALUE, TEXT,
-        path=filepath[:-10]
+        ENT, TYPE, VALUE, TEXT, path=filepath
     )
     ENT.build_vocab(train)
     TYPE.build_vocab(train)
@@ -167,4 +159,5 @@ if __name__ == "__main__":
     train_iter, valid_iter, test_iter = data.BucketIterator.splits(
         (train, valid, test), batch_size=32, device=torch.device("cuda:0")
     )
+    batch = next(iter(train_iter))
     import pdb; pdb.set_trace()
