@@ -16,6 +16,13 @@ def make_fields():
     TEXT = Field(lower=True, include_lengths=True)
     return ENT, TYPE, VALUE, TEXT
 
+def build_vocab(a,b,c,d, data):
+    a.build_vocab(data)
+    b.build_vocab(data)
+    c.build_vocab(data)
+    d.build_vocab(data)
+
+
 def nested_items(name, x):
     if isinstance(x, dict):
         for k, v in x.items():
