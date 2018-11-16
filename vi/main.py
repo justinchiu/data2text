@@ -41,7 +41,13 @@ def get_args():
     parser.add_argument("--dm", type=float, default=0)
     parser.add_argument("--nonag", action="store_true", default=False)
 
-    parser.add_argument("--model", choices=["Seq2seq", "Attn"], default="Seq2seq")
+    # Model
+    parser.add_argument(
+        "--model",
+        choices=["LM", "CLM", "HMM", "HSMM"],
+        default="LM"
+    )
+
     parser.add_argument("--attn", choices=["dot", "bilinear"], default="dot")
     parser.add_argument("--nlayers", default=3, type=int)
     parser.add_argument("--nhid", default=512, type=int)
@@ -67,6 +73,8 @@ device = torch.device(f"cuda:{args.devid}" if args.devid > 0 else "cpu")
 ENT, TYPE, VALUE, TEXT = data.make_fields()
 train, valid, test = data.RotoDataset.splits(ENT, TYPE, VALUE, TEXT, path=args.filepath)
 
+data.build_vocab(ENT, TYPE, VALUE, TEXT, train)
+
 train_iter, valid_iter, test_iter = BucketIterator.splits(
     (train, valid, test),
     batch_size = args.bsz,
@@ -76,8 +84,20 @@ train_iter, valid_iter, test_iter = BucketIterator.splits(
     #sort_key = already given in dataset?
 )
 
-data.build_vocab(ENT, TYPE, VALUE, TEXT, train)
+# Model
+model = Lm(
+    emb_hid = 256,
+    rnn_hid = 256,
+    nlayers = 2,
+)
 
+for e in range(args.epochs):
+    # Train
+    model.zero_gradient()
+    model.train_epoch(train_iter)
+
+    # Validate
+    model.validate(valid_iter)
 
 import pdb; pdb.set_trace()
 

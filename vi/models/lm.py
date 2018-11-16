@@ -6,14 +6,40 @@ import torch.nn.functional as F
 
 from torch.nn.utils import clip_grad_norm_ as clip_
 
+class Stats:
+    def __init__(self):
+        self._rx = 0
+        self._kl = 0
+        self._ntok = 0
+
+    def update(rx, kl, ntok):
+        self._rx += rx
+        self._kl += kl
+        self._ntok += ntok
+
+    @property
+    def rx(self):
+        return self._rx / ntok
+
+    @property
+    def kl(self):
+        return self._kl / ntok
+
+    @property
+    def elbo(self):
+        return (self._rx + self._kl) / ntok
+
+
 class Lm(nn.Module):
     def _loop(self, iter, learn, args):
         context = torch.enable_grad if learn else torch.no_grad
 
-        loss = 0
+        cum_loss = 0
         ntokens = 0
-        rloss = 0
-        rntokens = 0
+        cum_rx = 0
+        cum_kl = 0
+        batch_loss = 0
+        batch_ntokens = 0
         hidden_states = None
         with context():
             t = tqdm(iter)
