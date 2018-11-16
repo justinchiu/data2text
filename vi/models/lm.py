@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from torch.nn.utils import clip_grad_norm_ as clip_
 
-class ViModel(nn.Module):
+class Lm(nn.Module):
     def _loop(self, iter, learn, args):
         context = torch.enable_grad if learn else torch.no_grad
 

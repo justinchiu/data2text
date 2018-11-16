@@ -9,6 +9,12 @@ import io
 import os
 import json
 
+def make_fields():
+    ENT = Field(lower=True)
+    TYPE = Field(lower=True)
+    VALUE = Field(lower=True)
+    TEXT = Field(lower=True, include_lengths=True)
+    return ENT, TYPE, VALUE, TEXT
 
 def nested_items(name, x):
     if isinstance(x, dict):
@@ -147,6 +153,7 @@ if __name__ == "__main__":
     TYPE = Field(lower=True)
     VALUE = Field(lower=True)
     TEXT = Field(lower=True, include_lengths=True)
+    ENT, TYPE, VALUE, TEXT = make_fields()
 
     train, valid, test = RotoDataset.splits(
         ENT, TYPE, VALUE, TEXT, path=filepath
