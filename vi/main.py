@@ -27,7 +27,8 @@ def get_args():
     parser.add_argument("--clip", default=5, type=float)
     parser.add_argument("--lr", default=0.01, type=float)
     parser.add_argument("--lrd", default=0.1, type=float)
-    parser.add_argument("--dp", default=0, type=float)
+    parser.add_argument("--pat", default=0, type=int)
+    parser.add_argument("--dp", default=0.1, type=float)
     parser.add_argument("--wdp", default=0, type=float)
     parser.add_argument("--wd", default=1e-4, type=float)
 
@@ -55,7 +56,6 @@ def get_args():
     parser.add_argument("--nlayers", default=2, type=int)
     parser.add_argument("--emb-sz", default=256, type=int)
     parser.add_argument("--rnn-sz", default=256, type=int)
-    parser.add_argument("--dropout", default=0.3, type=float)
     parser.add_argument("--tieweights", action="store_true")
 
     parser.add_argument("--brnn", action="store_true")
@@ -77,7 +77,8 @@ device = torch.device(f"cuda:{args.devid}" if args.devid >= 0 else "cpu")
 
 # Data
 ENT, TYPE, VALUE, TEXT = data.make_fields()
-train, valid, test = data.RotoDataset.splits(ENT, TYPE, VALUE, TEXT, path=args.filepath)
+train, valid, test = data.RotoDataset.splits(
+    ENT, TYPE, VALUE, TEXT, path=args.filepath)
 
 data.build_vocab(ENT, TYPE, VALUE, TEXT, train)
 
@@ -96,7 +97,7 @@ model = RnnLm(
     emb_sz  = args.emb_sz,
     rnn_sz  = args.rnn_sz,
     nlayers = args.nlayers,
-    dropout = args.dropout,
+    dropout = args.dp,
 ).to(device)
 print(model)
 
@@ -104,11 +105,14 @@ params = list(model.parameters())
 
 optimizer = optim.Adam(
     params, lr = args.lr, weight_decay = args.wd, betas=(args.b1, args.b2))
+schedule = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, patience=args.pat, factor=args.lrd, threshold=1e-3)
 
-
+# TODO: try truncating sequences early on?
 for e in range(args.epochs):
+    print(f"Epoch {e} lr {optimizer.param_groups[0]['lr']}")
     # Train
-    model.train_epoch(
+    train_loss, tntok = model.train_epoch(
         iter      = train_iter,
         clip      = args.clip,
         re        = args.re,
@@ -116,7 +120,7 @@ for e in range(args.epochs):
     )
 
     # Validate
-    model.validate(valid_iter)
-
-import pdb; pdb.set_trace()
+    valid_loss, ntok = model.validate(valid_iter)
+    print(f"Epoch {e} train loss: {train_loss / tntok} valid loss: {valid_loss / ntok}")
+    schedule.step(valid_loss / ntok)
 

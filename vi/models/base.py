@@ -44,7 +44,7 @@ class Lm(nn.Module):
         batch_ntokens = 0
         states = None
         with context():
-            t = tqdm(iter)
+            t = tqdm(iter) if learn else iter
             for i, batch in enumerate(t):
                 if learn:
                     optimizer.zero_grad()
@@ -104,3 +104,10 @@ class Lm(nn.Module):
 
     def init_state(self):
         raise NotImplementedError
+
+
+class Ie(nn.Module):
+    PAD = "<pad>"
+
+    def _loop_ie(self):
+        pass
