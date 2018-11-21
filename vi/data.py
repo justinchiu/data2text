@@ -13,7 +13,8 @@ def make_fields():
     ENT = Field(lower=True)
     TYPE = Field(lower=True)
     VALUE = Field(lower=True)
-    TEXT = Field(lower=True, include_lengths=True)
+    TEXT = Field(
+        lower=True, include_lengths=True, init_token="<bos>", eos_token="<eos>", is_target=True)
     return ENT, TYPE, VALUE, TEXT
 
 def build_vocab(a,b,c,d, data):

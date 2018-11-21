@@ -1,11 +1,13 @@
 
 import argparse
+
 import torch
+import torch.optim as optim
 
 from torchtext.data import BucketIterator
 
 import data
-from models import lm
+from models.rnnlm import RnnLm
 
 import json
 
@@ -49,10 +51,13 @@ def get_args():
     )
 
     parser.add_argument("--attn", choices=["dot", "bilinear"], default="dot")
-    parser.add_argument("--nlayers", default=3, type=int)
-    parser.add_argument("--nhid", default=512, type=int)
-    parser.add_argument("--whid", default=512, type=int)
+
+    parser.add_argument("--nlayers", default=2, type=int)
+    parser.add_argument("--emb-sz", default=256, type=int)
+    parser.add_argument("--rnn-sz", default=256, type=int)
+    parser.add_argument("--dropout", default=0.3, type=float)
     parser.add_argument("--tieweights", action="store_true")
+
     parser.add_argument("--brnn", action="store_true")
     parser.add_argument("--inputfeed", action="store_true")
 
@@ -63,11 +68,12 @@ def get_args():
 
 
 args = get_args()
+print(args)
 
 torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 
-device = torch.device(f"cuda:{args.devid}" if args.devid > 0 else "cpu")
+device = torch.device(f"cuda:{args.devid}" if args.devid >= 0 else "cpu")
 
 # Data
 ENT, TYPE, VALUE, TEXT = data.make_fields()
@@ -85,16 +91,29 @@ train_iter, valid_iter, test_iter = BucketIterator.splits(
 )
 
 # Model
-model = Lm(
-    emb_hid = 256,
-    rnn_hid = 256,
-    nlayers = 2,
-)
+model = RnnLm(
+    V       = TEXT.vocab,
+    emb_sz  = args.emb_sz,
+    rnn_sz  = args.rnn_sz,
+    nlayers = args.nlayers,
+    dropout = args.dropout,
+).to(device)
+print(model)
+
+params = list(model.parameters())
+
+optimizer = optim.Adam(
+    params, lr = args.lr, weight_decay = args.wd, betas=(args.b1, args.b2))
+
 
 for e in range(args.epochs):
     # Train
-    model.zero_gradient()
-    model.train_epoch(train_iter)
+    model.train_epoch(
+        iter      = train_iter,
+        clip      = args.clip,
+        re        = args.re,
+        optimizer = optimizer,
+    )
 
     # Validate
     model.validate(valid_iter)
