@@ -107,7 +107,8 @@ optimizer = optim.Adam(
     params, lr = args.lr, weight_decay = args.wd, betas=(args.b1, args.b2))
 schedule = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, patience=args.pat, factor=args.lrd, threshold=1e-3)
-
+batch = next(iter(train_iter))
+#import pdb; pdb.set_trace()
 # TODO: try truncating sequences early on?
 for e in range(args.epochs):
     print(f"Epoch {e} lr {optimizer.param_groups[0]['lr']}")

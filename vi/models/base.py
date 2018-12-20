@@ -48,18 +48,24 @@ class Lm(nn.Module):
             for i, batch in enumerate(t):
                 if learn:
                     optimizer.zero_grad()
-                import pdb; pdb.set_trace()
                 text, lens = batch.text
                 x = text[:-1]
                 y = text[1:]
                 lens = lens - 1
+
+                e = batch.entities
+                t = batch.types
+                v = batch.values
+                #rlen, N = e.shape
+                r = torch.stack([e, t, v], dim=-1)
+
                 # should i include <eos> in ppl?
                 nwords = y.ne(1).sum()
                 # assert nwords == lens.sum()
                 T, N = y.shape
                 #if states is None:
                 states = self.init_state(N)
-                logits, _ = self(x, states, lens)
+                logits, _ = self(x, states, lens, r)
                 #logits, states = self(x, states, lens)
                 """
                 if learn:
@@ -137,14 +143,6 @@ class Ie(nn.Module):
                 states = self.init_state(N)
                 logits, _ = self(x, states, lens)
                 #logits, states = self(x, states, lens)
-                """
-                if learn:
-                    states = (
-                        [tuple(x.detach() for x in tup) for tup in states[0]],
-                        tuple(x.detach() for x in states[1]),
-                        states[2].detach(),
-                    )
-                """
                 logprobs = F.log_softmax(logits, dim=-1)
                 logp = logprobs.view(T*N, -1).gather(-1, y.view(T*N, 1))
                 kl = 0
