@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import numpy as np
+
 from torch.nn.utils import clip_grad_norm_ as clip_
 
 class Stats:
@@ -44,8 +46,8 @@ class Lm(nn.Module):
         batch_ntokens = 0
         states = None
         with context():
-            t = tqdm(iter) if learn else iter
-            for i, batch in enumerate(t):
+            titer = tqdm(iter) if learn else iter
+            for i, batch in enumerate(titer):
                 if learn:
                     optimizer.zero_grad()
                 text, lens = batch.text
@@ -53,11 +55,14 @@ class Lm(nn.Module):
                 y = text[1:]
                 lens = lens - 1
 
-                e = batch.entities
-                t = batch.types
-                v = batch.values
+                e, lene = batch.entities
+                t, lent = batch.types
+                v, lenv = batch.values
                 #rlen, N = e.shape
-                r = torch.stack([e, t, v], dim=-1)
+                #r = torch.stack([e, t, v], dim=-1)
+                r = [e, t, v]
+                assert (lene == lent).all()
+                lenr = lene
 
                 # should i include <eos> in ppl?
                 nwords = y.ne(1).sum()
@@ -65,7 +70,7 @@ class Lm(nn.Module):
                 T, N = y.shape
                 #if states is None:
                 states = self.init_state(N)
-                logits, _ = self(x, states, lens, r)
+                logits, _ = self(x, states, lens, r, lenr)
                 #logits, states = self(x, states, lens)
                 """
                 if learn:
@@ -75,11 +80,19 @@ class Lm(nn.Module):
                         states[2].detach(),
                     )
                 """
+                """
+                yflat = y.view(-1, 1)
+                logits = logits.view(T*N, -1)[yflat.expand(T*N, logits.shape[-1]) != 1]
                 logprobs = F.log_softmax(logits, dim=-1)
-                logp = logprobs.view(T*N, -1).gather(-1, y.view(T*N, 1))
+                logp = logprobs.gather(-1, yflat[yflat != 1])
+                """
+
+                logp = F.log_softmax(logits, dim=-1).view(T*N, -1).gather(-1, y.view(T*N, 1))[y.view(-1, 1) != 1]
                 kl = 0
-                nll = -logp[y.view(-1, 1) != 1].sum()
+                nll = -logp.sum()
                 nelbo = nll + kl
+                if np.isnan(nll.cpu().detach().numpy()).any():
+                    import pdb; pdb.set_trace()
                 if learn:
                     nelbo.div(nwords.item()).backward()
                     if clip > 0:
@@ -92,7 +105,7 @@ class Lm(nn.Module):
                 batch_loss += nelbo.item()
                 batch_ntokens += nwords.item()
                 if re is not None and i % re == -1 % re:
-                    t.set_postfix(loss = batch_loss / batch_ntokens, gnorm = gnorm)
+                    titer.set_postfix(loss = batch_loss / batch_ntokens, gnorm = gnorm)
                     batch_loss = 0
                     batch_ntokens = 0
         return cum_loss, cum_ntokens

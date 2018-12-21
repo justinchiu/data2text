@@ -1,4 +1,6 @@
-
+# rnnlm main.py --devid 0 --tieweights => 2.7
+# crnnlm main.py --devid 0 --model crnnlm --tieweights
+ 
 import argparse
 
 import torch
@@ -8,15 +10,19 @@ from torchtext.data import BucketIterator
 
 import data
 from models.rnnlm import RnnLm
+from models.crnnlm import CrnnLm
 
 import json
+
+torch.set_anomaly_enabled(True)
+
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--filepath",
         default="../boxscore-data/rotowire",
-        type=str
+        type=str,
     )
 
     parser.add_argument("--devid", default=-1, type=int)
@@ -47,8 +53,8 @@ def get_args():
     # Model
     parser.add_argument(
         "--model",
-        choices=["LM", "CLM", "HMM", "HSMM"],
-        default="LM"
+        choices=["rnnlm", "crnnlm", "HMM", "HSMM"],
+        default="rnnlm"
     )
 
     parser.add_argument("--attn", choices=["dot", "bilinear"], default="dot")
@@ -92,13 +98,29 @@ train_iter, valid_iter, test_iter = BucketIterator.splits(
 )
 
 # Model
-model = RnnLm(
-    V       = TEXT.vocab,
-    emb_sz  = args.emb_sz,
-    rnn_sz  = args.rnn_sz,
-    nlayers = args.nlayers,
-    dropout = args.dp,
-).to(device)
+if args.model == "rnnlm":
+    model = RnnLm(
+        V       = TEXT.vocab,
+        emb_sz  = args.emb_sz,
+        rnn_sz  = args.rnn_sz,
+        nlayers = args.nlayers,
+        dropout = args.dp,
+        tieweights = args.tieweights,
+    )
+elif args.model == "crnnlm":
+    model = CrnnLm(
+        Ve = ENT.vocab,
+        Vt = TYPE.vocab,
+        Vv = VALUE.vocab,
+        Vx = TEXT.vocab,
+        r_emb_sz = args.emb_sz,
+        x_emb_sz = args.emb_sz,
+        rnn_sz = args.rnn_sz,
+        nlayers = args.nlayers,
+        dropout = args.dp,
+        tieweights = args.tieweights,
+    )
+model.to(device)
 print(model)
 
 params = list(model.parameters())
@@ -106,7 +128,7 @@ params = list(model.parameters())
 optimizer = optim.Adam(
     params, lr = args.lr, weight_decay = args.wd, betas=(args.b1, args.b2))
 schedule = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, patience=args.pat, factor=args.lrd, threshold=1e-3)
+    optimizer, patience=args.pat, factor=args.lrd, threshold=1e-3)
 batch = next(iter(train_iter))
 #import pdb; pdb.set_trace()
 # TODO: try truncating sequences early on?

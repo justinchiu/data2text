@@ -10,9 +10,9 @@ import os
 import json
 
 def make_fields():
-    ENT = Field(lower=True)
-    TYPE = Field(lower=True)
-    VALUE = Field(lower=True)
+    ENT = Field(lower=True, include_lengths=True)
+    TYPE = Field(lower=True, include_lengths=True)
+    VALUE = Field(lower=True, include_lengths=True)
     TEXT = Field(
         lower=True, include_lengths=True, init_token="<bos>", eos_token="<eos>", is_target=True)
     return ENT, TYPE, VALUE, TEXT
@@ -157,9 +157,9 @@ class RotoDataset(Dataset):
 
 if __name__ == "__main__":
     filepath = "/n/rush_lab/jc/code/data2text/boxscore-data/rotowire/"
-    ENT = Field(lower=True)
-    TYPE = Field(lower=True)
-    VALUE = Field(lower=True)
+    ENT = Field(lower=True, include_lengths=True)
+    TYPE = Field(lower=True, include_lengths=True)
+    VALUE = Field(lower=True, include_lengths=True)
     TEXT = Field(lower=True, include_lengths=True)
     ENT, TYPE, VALUE, TEXT = make_fields()
 

@@ -14,11 +14,11 @@ class RnnLm(Lm):
         rnn_sz = 256,
         nlayers = 2,
         dropout = 0.3,
-        tie_weights = True,
+        tieweights = True,
     ):
         super(RnnLm, self).__init__()
 
-        if tie_weights:
+        if tieweights:
             assert(emb_sz == rnn_sz)
 
         self._N = 0
@@ -50,10 +50,11 @@ class RnnLm(Lm):
         )
 
         # Tie weights
-        self.proj.weight = self.lut.weight
+        if tieweights:
+            self.proj.weight = self.lut.weight
 
 
-    def forward(self, x, s, lens):
+    def forward(self, x, s, lens, r=None, lenr=None):
         emb = self.lut(x)
         p_emb = pack(emb, lens)
         x, s = self.rnn(p_emb, s)
