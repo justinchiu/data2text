@@ -1,4 +1,4 @@
-from .base import Lm
+from .base import Lvm
 
 import torch
 import torch.nn as nn
@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 
-class CrnnLm(Lm):
+class CrnnLvm(Lvm):
     def __init__(
         self,
         Ve = None,
@@ -21,7 +21,7 @@ class CrnnLm(Lm):
         dropout = 0.3,
         tieweights = True,
     ):
-        super(CrnnLm, self).__init__()
+        super(CrnnLvm, self).__init__()
 
         if tieweights:
             assert(x_emb_sz == rnn_sz)
@@ -106,7 +106,6 @@ class CrnnLm(Lm):
 
         # r: R x N x Er, Wa r: R x N x H
         r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
-        #r = self.Wa(e + t + v)
 
         # dot-prod attn
         # attn1 = (x.permute(1, 0, 2) @ r.permute(1, 2, 0)).permute(1, 0, 2)
