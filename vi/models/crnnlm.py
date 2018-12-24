@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
+from .fns import attn
 
 class CrnnLm(Lm):
     def __init__(
@@ -37,6 +38,7 @@ class CrnnLm(Lm):
         self.rnn_sz = rnn_sz
         self.nlayers = nlayers
         self.dropout = dropout
+        self.input_feed = False
 
         self.lute = nn.Embedding(
             num_embeddings = len(Ve),
@@ -59,7 +61,9 @@ class CrnnLm(Lm):
             padding_idx = Vx.stoi[self.PAD],
         )
         self.rnn = nn.LSTM(
-            input_size = x_emb_sz,
+            input_size = x_emb_sz
+                if not self.input_feed
+                else x_emb_sz + r_emb_sz,
             hidden_size = rnn_sz,
             num_layers = nlayers,
             bias = False,
@@ -94,35 +98,34 @@ class CrnnLm(Lm):
 
     def forward(self, x, s, lenx, r, lenr):
         emb = self.lutx(x)
-        p_emb = pack(emb, lenx)
-        # no input feeding for now
-        x, s = self.rnn(p_emb, s)
-        # x: T x N x H
-        x, idk = unpack(x)
 
         e = self.lute(r[0])
         t = self.lutt(r[1])
         v = self.lutv(r[2])
 
-        # r: R x N x Er, Wa r: R x N x H
-        r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
-        #r = self.Wa(e + t + v)
+        if not self.input_feed:
+            p_emb = pack(emb, lenx)
+            rnn_o, s = self.rnn(p_emb, s)
+            # rnn_o: T x N x H
+            rnn_o, idk = unpack(rnn_o)
+            # r: R x N x Er, Wa r: R x N x H
+            r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
+            # ea: T x N x R
+            ea, ec = attn(rnn_o, r, lenr)
+            out = torch.tanh(self.Wc(torch.cat([rnn_o, ec], dim=-1)))
+        else:
+            T, N, H = x.shape
+            outs = []
+            ect = torch.zeros(N, self.r_emb_sz)
+            for t in range(T):
+                inp = torch.cat([x[t], ect], dim=-1)
+                rnn_o, s = self.rnn(inp.unsqueeze(0), s)
+                eat, ect = attn(rnn_o, r, lenr)
+                outs.append(torch.cat([rnn_0, ect], dim=-1))
+            out = torch.tanh(self.Wc(torch.stack(outs, dim=0)))
 
-        # dot-prod attn
-        # attn1 = (x.permute(1, 0, 2) @ r.permute(1, 2, 0)).permute(1, 0, 2)
-        # vs
-        logits = torch.einsum("tnh,rnh->tnr", [x, r])
-        # mask attn
-        idxs = torch.arange(0, max(lenr)).to(lenr.device)
-        mask = idxs.repeat(len(lenr), 1) >= lenr.unsqueeze(1)
-        logits.masked_fill_(mask.unsqueeze(0), -float("inf"))
-        attn = F.softmax(logits, dim=-1)
-
-        context = torch.einsum("tnr,rnh->tnh", [attn, r])
-
-        x = torch.tanh(self.Wc(torch.cat([x, context], dim=-1)))
-
-        return self.proj(self.drop(x)), s
+        # return unnormalized vocab
+        return self.proj(self.drop(out)), s
 
 
     def init_state(self, N):
