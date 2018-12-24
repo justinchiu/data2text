@@ -15,8 +15,9 @@ from models.crnnlvm import CrnnLvm
 
 import json
 
-torch.set_anomaly_enabled(True)
-
+#torch.set_anomaly_enabled(True)
+#torch.backends.cudnn.enabled = False
+torch.backends.cudnn.enabled = True
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -120,6 +121,7 @@ elif args.model == "crnnlm":
         nlayers = args.nlayers,
         dropout = args.dp,
         tieweights = args.tieweights,
+        inputfeed = args.inputfeed,
     )
 elif args.model == "crnnlvm":
     model = CrnnLvm(
@@ -133,6 +135,7 @@ elif args.model == "crnnlvm":
         nlayers = args.nlayers,
         dropout = args.dp,
         tieweights = args.tieweights,
+        inputfeed = args.inputfeed,
     )
 model.to(device)
 print(model)

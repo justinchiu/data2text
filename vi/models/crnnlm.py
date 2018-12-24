@@ -21,6 +21,7 @@ class CrnnLm(Lm):
         nlayers = 2,
         dropout = 0.3,
         tieweights = True,
+        inputfeed = True,
     ):
         super(CrnnLm, self).__init__()
 
@@ -38,7 +39,7 @@ class CrnnLm(Lm):
         self.rnn_sz = rnn_sz
         self.nlayers = nlayers
         self.dropout = dropout
-        self.input_feed = False
+        self.inputfeed = inputfeed
 
         self.lute = nn.Embedding(
             num_embeddings = len(Ve),
@@ -62,7 +63,7 @@ class CrnnLm(Lm):
         )
         self.rnn = nn.LSTM(
             input_size = x_emb_sz
-                if not self.input_feed
+                if not self.inputfeed
                 else x_emb_sz + r_emb_sz,
             hidden_size = rnn_sz,
             num_layers = nlayers,
@@ -96,32 +97,34 @@ class CrnnLm(Lm):
             self.proj.weight = self.lutx.weight
 
 
+    #@torch.jit.script_method
     def forward(self, x, s, lenx, r, lenr):
         emb = self.lutx(x)
+        T, N, H = emb.shape
 
         e = self.lute(r[0])
         t = self.lutt(r[1])
         v = self.lutv(r[2])
+        # r: R x N x Er, Wa r: R x N x H
+        r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
 
-        if not self.input_feed:
+        if not self.inputfeed:
             p_emb = pack(emb, lenx)
             rnn_o, s = self.rnn(p_emb, s)
             # rnn_o: T x N x H
             rnn_o, idk = unpack(rnn_o)
-            # r: R x N x Er, Wa r: R x N x H
-            r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
             # ea: T x N x R
             ea, ec = attn(rnn_o, r, lenr)
             out = torch.tanh(self.Wc(torch.cat([rnn_o, ec], dim=-1)))
         else:
-            T, N, H = x.shape
             outs = []
-            ect = torch.zeros(N, self.r_emb_sz)
+            ect = torch.zeros(N, self.r_emb_sz).to(emb.device)
             for t in range(T):
-                inp = torch.cat([x[t], ect], dim=-1)
+                inp = torch.cat([emb[t], ect], dim=-1)
                 rnn_o, s = self.rnn(inp.unsqueeze(0), s)
+                rnn_o = rnn_o.squeeze(0)
                 eat, ect = attn(rnn_o, r, lenr)
-                outs.append(torch.cat([rnn_0, ect], dim=-1))
+                outs.append(torch.cat([rnn_o, ect], dim=-1))
             out = torch.tanh(self.Wc(torch.stack(outs, dim=0)))
 
         # return unnormalized vocab
