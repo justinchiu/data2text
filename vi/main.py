@@ -34,7 +34,7 @@ def get_args():
 
     parser.add_argument("--clip", default=5, type=float)
     parser.add_argument("--lr", default=0.01, type=float)
-    parser.add_argument("--lrd", default=0.1, type=float)
+    parser.add_argument("--lrd", default=0.25, type=float)
     parser.add_argument("--pat", default=0, type=int)
     parser.add_argument("--dp", default=0.1, type=float)
     parser.add_argument("--wdp", default=0, type=float)
