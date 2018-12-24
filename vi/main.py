@@ -59,6 +59,7 @@ def get_args():
         default="rnnlm"
     )
 
+
     parser.add_argument("--attn", choices=["dot", "bilinear"], default="dot")
 
     parser.add_argument("--nlayers", default=2, type=int)
@@ -68,6 +69,8 @@ def get_args():
 
     parser.add_argument("--brnn", action="store_true")
     parser.add_argument("--inputfeed", action="store_true")
+
+    parser.add_argument("--save", action="store_true")
 
     parser.add_argument("--re", default=100, type=int)
 
@@ -146,9 +149,10 @@ optimizer = optim.Adam(
     params, lr = args.lr, weight_decay = args.wd, betas=(args.b1, args.b2))
 schedule = optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, patience=args.pat, factor=args.lrd, threshold=1e-3)
-batch = next(iter(train_iter))
-#import pdb; pdb.set_trace()
+#batch = next(iter(train_iter))
 # TODO: try truncating sequences early on?
+
+best_val = float("inf")
 for e in range(args.epochs):
     print(f"Epoch {e} lr {optimizer.param_groups[0]['lr']}")
     # Train
@@ -164,3 +168,7 @@ for e in range(args.epochs):
     print(f"Epoch {e} train loss: {train_loss / tntok} valid loss: {valid_loss / ntok}")
     schedule.step(valid_loss / ntok)
 
+    if args.save and valid_loss < best_val:
+        best_val = valid_loss
+        savestring = f"{args.model}-lr{args.lr}-dp{args.dp}-tw{args.tieweights}-if{args.inputfeed}.pt"
+        torch.save(model, savestring)
