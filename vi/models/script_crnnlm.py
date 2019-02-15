@@ -97,7 +97,7 @@ class CrnnLm(Lm):
             self.proj.weight = self.lutx.weight
 
 
-    def forward(self, x, s, lenx, r, lenr):
+    def _forward(self, x, s, lenx, r, lenr):
         emb = self.lutx(x)
         T, N, H = emb.shape
 

@@ -97,7 +97,6 @@ class CrnnLvm(Lm):
             self.proj.weight = self.lutx.weight
 
 
-    #@torch.jit.script_method
     def forward(self, x, s, lenx, r, lenr):
         emb = self.lutx(x)
         T, N, H = emb.shape
@@ -107,15 +106,23 @@ class CrnnLvm(Lm):
         v = self.lutv(r[2])
         # r: R x N x Er, Wa r: R x N x H
         r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
+        R = r.shape[0]
 
         if not self.inputfeed:
             p_emb = pack(emb, lenx)
             rnn_o, s = self.rnn(p_emb, s)
             # rnn_o: T x N x H
             rnn_o, idk = unpack(rnn_o)
+            # rnn_o: 1->R x T x N x H
+            rnn_o = rnn_o.unsqueeze(0).repeat(R, 1, 1, 1)
             # ea: T x N x R
             ea, ec = attn(rnn_o, r, lenr)
-            out = torch.tanh(self.Wc(torch.cat([rnn_o, ec], dim=-1)))
+            # ctxt: R x 1->T x N x H
+            ctxt = r.unsqueeze(1).repeat(1, T, 1, 1)
+            out = torch.tanh(self.Wc(torch.cat([rnn_o, ctxt], dim=-1)))
+            # too large, use partial enumeration only + reinforce and baseline...?
+            # or just reinforce + baseline
+            import pdb; pdb.set_trace()
         else:
             outs = []
             ect = torch.zeros(N, self.r_emb_sz).to(emb.device)
