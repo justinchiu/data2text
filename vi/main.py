@@ -1,5 +1,5 @@
 # rnnlm main.py --devid 0 --tieweights => 2.7
-# crnnlm main.py --devid 0 --model crnnlm --tieweights --lr 0.003 => 2.337
+# crnnlm main.py --devid 0 --model crnnlm --tieweights --lr 0.003 => 2.338
  
 import argparse
 
@@ -18,6 +18,7 @@ import json
 #torch.set_anomaly_enabled(True)
 #torch.backends.cudnn.enabled = False
 torch.backends.cudnn.enabled = True
+torch.backends.cudnn.deterministic = True
 
 def get_args():
     parser = argparse.ArgumentParser()
