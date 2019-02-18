@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 from .fns import attn
 
-class CrnnLvm(Lm):
+class CrnnMlm(Lm):
     def __init__(
         self,
         Ve = None,
@@ -23,7 +23,7 @@ class CrnnLvm(Lm):
         tieweights = True,
         inputfeed = True,
     ):
-        super(CrnnLvm, self).__init__()
+        super(CrnnMlm, self).__init__()
 
         if tieweights:
             assert(x_emb_sz == rnn_sz)
@@ -96,15 +96,40 @@ class CrnnLvm(Lm):
         if tieweights:
             self.proj.weight = self.lutx.weight
 
+    def query(self):
+        pass
 
-    def forward(self, x, s, lenx, r, lenr):
+
+    """
+    emb_x: T x N x Hx
+    r: R x N x Hr
+    ctxt: T x N x Hc = f(emb_x, r)
+    prior
+    a: T x N x R ~ Cat(r^T W ctxt)
+    unnormalized likelihood
+    y: T x N x V = g(ctxt, attn(a, r))
+    """
+
+    # unnormalized likelihood
+    def pyz(self, ctxt, r, z, lenx, lenr):
+        pass
+
+    def pa(self, x, r, lenx, lenr):
+        pass
+
+    def pay(self, emb_x, s, r, y, lenx, lenr):
+        pass
+
+    def forward(self, x, s, lenx, r, lenr, ):
         emb = self.lutx(x)
         T, N, H = emb.shape
 
         e = self.lute(r[0])
         t = self.lutt(r[1])
         v = self.lutv(r[2])
-        # r: R x N x Er, Wa r: R x N x H
+
+        # r: R x N x Er
+        # Wa r: R x N x H
         r = self.Wa(torch.tanh(torch.cat([e, t, v], dim=-1)))
         R = r.shape[0]
 

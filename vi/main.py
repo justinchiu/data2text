@@ -1,5 +1,8 @@
-# rnnlm main.py --devid 0 --tieweights => 2.7
-# crnnlm main.py --devid 0 --model crnnlm --tieweights --lr 0.003 => 2.338
+# rnnlm => 2.7
+# python main.py --devid 0 --tieweights
+# crnnlm => 2.338
+# python main.py --devid 0 --model crnnlm --tieweights --lr 0.003
+ 
  
 import argparse
 
@@ -11,7 +14,7 @@ from torchtext.data import BucketIterator
 import data
 from models.rnnlm import RnnLm
 from models.crnnlm import CrnnLm
-from models.crnnlvm import CrnnLvm
+from models.crnnmlm import CrnnMlm
 
 import json
 
@@ -56,7 +59,7 @@ def get_args():
     # Model
     parser.add_argument(
         "--model",
-        choices=["rnnlm", "crnnlm", "crnnlvm", "HMM", "HSMM"],
+        choices=["rnnlm", "crnnlm", "crnnmlm", "HMM", "HSMM"],
         default="rnnlm"
     )
 
@@ -127,8 +130,8 @@ elif args.model == "crnnlm":
         tieweights = args.tieweights,
         inputfeed = args.inputfeed,
     )
-elif args.model == "crnnlvm":
-    model = CrnnLvm(
+elif args.model == "crnnmlm":
+    model = CrnnMlm(
         Ve = ENT.vocab,
         Vt = TYPE.vocab,
         Vv = VALUE.vocab,
