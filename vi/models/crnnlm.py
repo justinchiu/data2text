@@ -113,7 +113,7 @@ class CrnnLm(Lm):
             # rnn_o: T x N x H
             rnn_o, idk = unpack(rnn_o)
             # ea: T x N x R
-            ea, ec = attn(rnn_o, r, lenr)
+            _, ea, ec = attn(rnn_o, r, lenr)
             out = torch.tanh(self.Wc(torch.cat([rnn_o, ec], dim=-1)))
         else:
             outs = []
@@ -122,7 +122,7 @@ class CrnnLm(Lm):
                 inp = torch.cat([emb[t], ect], dim=-1)
                 rnn_o, s = self.rnn(inp.unsqueeze(0), s)
                 rnn_o = rnn_o.squeeze(0)
-                eat, ect = attn(rnn_o, r, lenr)
+                _, eat, ect = attn(rnn_o, r, lenr)
                 outs.append(torch.cat([rnn_o, ect], dim=-1))
             out = torch.tanh(self.Wc(torch.stack(outs, dim=0)))
 

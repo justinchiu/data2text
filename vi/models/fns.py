@@ -12,9 +12,10 @@ def attn(x, r, lenr):
     if logits.dim() > 2:
         mask = mask.unsqueeze(0)
     logits.masked_fill_(mask, -float("inf"))
-    a = F.softmax(logits, dim=-1)
+    log_a = F.log_softmax(logits, dim=-1)
+    a = log_a.exp()
     c = torch.einsum("...nr,rnh->...nh", [a, r])
-    return a, c
+    return log_a, a, c
 
 
 if __name__ == "__main__":
