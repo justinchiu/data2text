@@ -23,6 +23,9 @@ import json
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.deterministic = True
 
+# debug
+torch.autograd.set_detect_anomaly(True)
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(

@@ -1,4 +1,4 @@
-from .base import Lm
+from .lvm import Lvm
 
 import torch
 import torch.nn as nn
@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 from .fns import attn
 
-class CrnnMlm(Lm):
+class CrnnMlm(Lvm):
     def __init__(
         self,
         Ve = None,
@@ -29,6 +29,7 @@ class CrnnMlm(Lm):
             assert(x_emb_sz == rnn_sz)
 
         self._N = 0
+        self.K = 1
 
         self.Ve = Ve
         self.Vt = Vt
@@ -98,6 +99,19 @@ class CrnnMlm(Lm):
 
 
         # Inference network
+        self.brnn = nn.LSTM(
+            input_size = x_emb_sz,
+            hidden_size = rnn_sz,
+            num_layers = nlayers,
+            bias = False,
+            dropout = 0.3,
+            bidirectional = True,
+        )
+        self.Wi = nn.Linear(
+            in_features  = r_emb_sz,
+            out_features = 2*rnn_sz,
+            bias = False,
+        )
 
 
     def query(self):
@@ -153,13 +167,17 @@ class CrnnMlm(Lm):
             ea = torch.stack(ea, 0)
             ec = torch.stack(ec, 0)
             output = torch.stack(output, 0)
-        return log_ea, ea, ec, output
+        return log_ea, ea, ec, output, s
 
     # posterior
-    def pay(self, emb_x, s, r, y, lenx, lenr):
-        pass
+    def pay(self, emb_y, r, leny, lenr):
+        p_emb = pack(emb_y, leny)
+        rnn_o, _ = self.brnn(p_emb)
+        rnn_o, idk = unpack(rnn_o)
+        log_ea, ea, ec = attn(rnn_o, self.Wi(r), lenr)
+        return log_ea, ea, ec
 
-    def forward(self, x, s, lenx, r, lenr):
+    def forward(self, x, s, lenx, r, lenr, y=None):
         e = self.lute(r[0])
         t = self.lutt(r[1])
         v = self.lutv(r[2])
@@ -170,20 +188,35 @@ class CrnnMlm(Lm):
 
         emb_x = self.lutx(x)
 
-        log_pa, pa, ec, rnn_o = self.pa0(emb_x, s, r, lenx, lenr)
+        log_pa, pa, ec, rnn_o, s = self.pa0(emb_x, s, r, lenx, lenr)
 
         # what should we do with pa, ec, and rnn_o?
         # ec is only used for a baseline
         R, N, H = r.shape
         T = x.shape[0]
-        K = 1
+        K = self.K
 
         # pya later
-        dist = torch.distributions.categorical.Categorical(probs=pa)
+        if y is not None:
+            emb_y = self.lutx(y)
+            leny = lenx # right?
+            log_pay, pay, eyc = self.pay(emb_y, r, leny, lenr)
+        else:
+            log_pay, pay = None, None
+
+        dist = (
+            torch.distributions.categorical.Categorical(probs=pa)
+            if y is None
+            else torch.distributions.categorical.Categorical(probs=pay)
+        )
         # First dimension should be number of samples
         # K x T x N
-        a_samples = dist.sample_n(K)
-        a_log_p = log_pa.gather(-1, a_samples.permute(1, 2, 0))
+        a_samples = dist.sample((K,))
+        a_log_p = (
+            (log_pa if y is None else log_pay)
+            .gather(-1, a_samples.permute(1, 2, 0))
+            .permute(2,0,1)
+        )
 
         # add baseline
         rnn_o = rnn_o.unsqueeze(0).repeat(K+1, 1, 1, 1)
@@ -201,7 +234,7 @@ class CrnnMlm(Lm):
         )
 
         sy = self.sya(rnn_o, ctxt, ec, pa, lenx, lenr)
-        return sy
+        return sy, s, a_log_p, log_pa, log_pay
 
     def _old_forward(self, x, s, lenx, r, lenr):
         emb = self.lutx(x)
