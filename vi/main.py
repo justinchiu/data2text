@@ -5,6 +5,8 @@
  
  
 import argparse
+import random
+import json
 
 import torch
 import torch.optim as optim
@@ -15,8 +17,6 @@ import data
 from models.rnnlm import RnnLm
 from models.crnnlm import CrnnLm
 from models.crnnmlm import CrnnMlm
-
-import json
 
 #torch.set_anomaly_enabled(True)
 #torch.backends.cudnn.enabled = False
@@ -88,6 +88,7 @@ def get_args():
 args = get_args()
 print(args)
 
+random.seed(args.seed)
 torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 

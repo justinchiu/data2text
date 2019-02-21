@@ -61,23 +61,27 @@ class Lvm(Lm):
 
 
                 # giving nans because of masking, sigh
-                #"""
-                qa = log_qa.exp()
-                qa[log_qay == float("-inf")] = 0
-                kl0 = (log_qay.exp() * (log_qay - log_pa))
-                kl0 = log_qay - log_pa
+                # hmm...this worked before?
+                """
+                qa = log_qay.exp()
+                qa.data[log_qay == float("-inf")] = 0
+                kl0 = qa * (log_qay - log_pa)
                 kl0[log_qay == float("-inf")] = 0
                 kl = kl0.sum()
                 #import pdb; pdb.set_trace()
-                #"""
                 """
+                #"""
                 kl = 0
+                qa = log_qay.exp()
                 for i, l in enumerate(lenr.tolist()):
-                    p = Categorical(logits=log_pa[:,i,:l])
-                    q = Categorical(logits=log_qay[:,i,:l])
-                    kl0 = kl_divergence(q, p).sum()
+                    #p = Categorical(logits=log_pa[:,i,:l])
+                    #q = Categorical(logits=log_qay[:,i,:l])
+                    #kl0 = kl_divergence(q, p).sum()
+                    kl0 = qa[:,i,:l] * (log_qay[:,i,:l] - log_pa[:,i,:l])
+                    kl0[log_qay[:,i,:l] == float("-inf")] = 0
+                    kl0 = kl0.sum()
                     kl += kl0
-                    """
+                    #"""
 
 
                 #p = Categorical(logits=log_pa[mask])
